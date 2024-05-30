@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import mpmath as mp
 from tqdm.auto import tqdm
@@ -5,6 +6,17 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 
 K = float(mp.khinchin(dps=16))
+
+
+def save_anim(anim, fpath, fps=30):
+  fname, ext = os.path.splitext(fpath)
+  if ext == '.gif':
+    anim.save(fpath, writer=animation.PillowWriter(fps=fps))
+  elif ext == '.mp4':
+    FFwriter = animation.FFMpegWriter(fps=fps)  # For colab.
+    anim.save(fpath, writer=FFwriter)
+  else:
+    raise ValueError(f'Unknown file extension `{ext}`')
 
 
 def range_change_log(OldValue, OldMin, OldMax, NewMin, NewMax):
@@ -39,6 +51,7 @@ class Lines():
       a = line.get_alpha()
       if a == 1:
         line.set_alpha(0.5)
+        line.set_linewidth(1)
         c = next(self.ax._get_lines.prop_cycler)['color']
         line.set_color(c)
         scat.set_alpha(0.5)
@@ -64,7 +77,7 @@ class Lines():
       last_point_y = self.mean_lines[i][-1]
       self._update_decays(10/self.num_lines)
       self.num.set_text(f'{mp.nstr(self.nums[i],100)}...')
-      current_line = self.ax.plot(self.line_x_points, self.mean_lines[i], c='w', alpha=1)[0]
+      current_line = self.ax.plot(self.line_x_points, self.mean_lines[i], c='w', alpha=1, linewidth=2)[0]
       current_scat = self.ax.scatter(last_point_x, last_point_y, color='b', s=72, zorder=3)
       self.legend.get_texts()[0].set_text(f'{last_point_y:.10f}')
       self.lines.append(current_line)
@@ -165,17 +178,12 @@ def animate_labelled_lines(line_x_points, labelled_lines, y_window=0.5):
     lines.append(ax.plot([],[], label=label, alpha=0.7)[0])
   ax.legend(loc=1, fontsize=12)
 
-  def init():
-    for line in lines:
-      line.set_data([],[])
-    return lines
-
   def animate(i):
     for line, (label, line_y_points) in zip(lines, labelled_lines.items()):
       line.set_data(line_x_points[:i+1], line_y_points[:i+1])
     return lines
 
-  return animation.FuncAnimation(fig, animate, tqdm(range(len(line_x_points)), initial=1), init_func=init, blit=True)
+  return animation.FuncAnimation(fig, animate, tqdm(range(len(line_x_points)), initial=1), blit=True)
 
 
 def animate_line_zoom_in(line_x_points, labelled_line):
@@ -266,11 +274,12 @@ class Bars():
   def __init__(self, prob_steps):
     self.prob_steps = prob_steps
     self.fig, self.axs = plt.subplots(1, 2, figsize=(24,8))
-    self.axs[0].set_xlim(0, 11)
     self.axs[0].set_ylim(0, 1.1)
+    self.axs[1].set_ylim(0, 1.1)
+    self.axs[0].set_xticks(range(1,11))
+    self.axs[1].set_xticks(range(1,11))
     self.axs[0].axhline(1, color='w', linestyle='--', linewidth=3, zorder=4)
     nums = np.arange(1, 1+len(prob_steps))
-    self.axs[1].set_ylim(0, 1.1)
     pmf = lambda k: -np.log2(1-(1/((k+1)**2)))
     self.axs[1].plot(
         nums, pmf(nums), c='y', linewidth=3, marker='o', mfc='r', mec='r',
